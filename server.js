@@ -1,6 +1,7 @@
 const express = require('express');
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
-const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const fetch = require('node-fetch');
+const multer = require('multer');
+const FormData = require('form-data');
 const cors = require('cors');
 require('dotenv').config();
 
@@ -9,32 +10,32 @@ const port = 3001;
 
 app.use(cors());
 
+// Multer setup for handling file uploads
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
+
 app.get('/test', (req, res) => {
   res.send('Server is running');
 });
 
-// Configure AWS SDK
-const s3Client = new S3Client({
-  region: 'sgp1',
-  endpoint: 'https://sgp1.digitaloceanspaces.com',
-  credentials: {
-    accessKeyId: process.env.DO_SPACE_KEY,
-    secretAccessKey: process.env.DO_SPACE_SECRET,
-  },
-});
-
-app.get('/generate-url', async (req, res) => {
+// New route to handle image upload
+app.post('/upload-image', upload.single('image'), async (req, res) => {
   try {
-    const fileName = `${Date.now()}_${req.query.filename}`;
-    const command = new PutObjectCommand({
-      Bucket: process.env.DO_SPACE_NAME,
-      Key: fileName,
-      ACL: 'public-read', // Ensure ACL is set to public-read
+    const formData = new FormData();
+    formData.append('hash', req.body.hash);
+    formData.append('image', req.file.buffer, req.file.originalname);
+
+    const response = await fetch('https://mypress-output.paragoniu.app/upload-image', {
+      method: 'POST',
+      body: formData,
     });
 
-    const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 60 });
-    const fileUrl = `https://${process.env.DO_SPACE_NAME}.sgp1.digitaloceanspaces.com/${fileName}`;
-    res.json({ success: true, uploadUrl, fileUrl });
+    if (!response.ok) {
+      throw new Error(`Failed to upload file: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    res.json(result);
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
