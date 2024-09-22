@@ -19,7 +19,7 @@ app.get('/test', (req, res) => {
 // New route to handle image upload
 app.post('/upload-image', upload.single('image'), async (req, res) => {
   try {
-    const fetch = (await import('node-fetch')).default;
+    const fetch = (await import('node-fetch')).default;  // Use dynamic import
     const formData = new FormData();
     formData.append('hash', req.body.hash);
     formData.append('image', req.file.buffer, req.file.originalname);
