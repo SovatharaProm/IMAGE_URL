@@ -1,9 +1,7 @@
 const express = require('express');
-const fetch = require('node-fetch');
 const multer = require('multer');
 const FormData = require('form-data');
 const cors = require('cors');
-require('dotenv').config();
 
 const app = express();
 const port = 3001;
@@ -21,6 +19,7 @@ app.get('/test', (req, res) => {
 // New route to handle image upload
 app.post('/upload-image', upload.single('image'), async (req, res) => {
   try {
+    const fetch = (await import('node-fetch')).default;
     const formData = new FormData();
     formData.append('hash', req.body.hash);
     formData.append('image', req.file.buffer, req.file.originalname);
