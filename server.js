@@ -1,9 +1,9 @@
 const express = require('express');
 const multer = require('multer');
+const FormData = require('form-data');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
-const FormData = require('form-data');
 
 const app = express();
 const port = 3001;
@@ -23,6 +23,7 @@ app.post('/upload-image', upload.single('image'), async (req, res) => {
   try {
     const fetch = (await import('node-fetch')).default;
     const formData = new FormData();
+    formData.append('hash', req.body.hash);
     formData.append('image', req.file.buffer, req.file.originalname);
 
     const response = await fetch('https://mypress-output.paragoniu.app/upload-image', {
