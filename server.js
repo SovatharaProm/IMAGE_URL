@@ -11,7 +11,18 @@ const port = 3001;
 app.use(cors());
 
 // Multer setup for handling file uploads
-const storage = multer.memoryStorage();
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadPath = path.join(__dirname, 'uploads');
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath);
+    }
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    cb(null, `${Date.now()}_${file.originalname}`);
+  },
+});
 const upload = multer({ storage: storage });
 
 app.get('/test', (req, res) => {
@@ -21,10 +32,10 @@ app.get('/test', (req, res) => {
 // New route to handle image upload
 app.post('/upload-image', upload.single('image'), async (req, res) => {
   try {
-    const fetch = (await import('node-fetch')).default;
+    const fetch = (await import('node-fetch')).default; // Dynamic import of node-fetch
     const formData = new FormData();
     formData.append('hash', req.body.hash);
-    formData.append('image', req.file.buffer, req.file.originalname);
+    formData.append('image', fs.createReadStream(req.file.path));
 
     const response = await fetch('https://mypress-output.paragoniu.app/upload-image', {
       method: 'POST',
@@ -42,6 +53,9 @@ app.post('/upload-image', upload.single('image'), async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 });
+
+// Serve uploaded files statically
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.listen(port, () => {
   console.log(`Server started on http://localhost:${port}`);
