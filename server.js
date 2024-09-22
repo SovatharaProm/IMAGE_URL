@@ -32,35 +32,53 @@ app.get('/test', (req, res) => {
   res.send('Server is running');
 });
 
-// Route to handle image upload and send to external API
+// Route to handle image upload and send to external storage (DigitalSpace)
 app.post('/upload-image', upload.single('image'), async (req, res) => {
   try {
     const filePath = path.join(uploadDir, req.file.filename);
-    
-    // Send the uploaded image to the external API
-    const fetch = (await import('node-fetch')).default;
-    const formData = new FormData();
-    formData.append('hash', req.body.hash);
-    formData.append('image', fs.createReadStream(filePath)); // Send the file streams
 
-    const response = await fetch('https://mypress-output.paragoniu.app/upload-image', {
-      method: 'POST',
-      body: formData,
-      headers: formData.getHeaders(),
-    });
+    // Generate pre-signed URL from the external server
+    const fetch = (await import('node-fetch')).default;
+    const response = await fetch(
+      `https://mypress.paragoniu.app/image/generate-url?filename=${req.file.filename}`
+    );
 
     if (!response.ok) {
-      throw new Error(`Failed to upload file to external API: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error("Error generating pre-signed URL:", errorText);
+      throw new Error("Failed to generate pre-signed URL");
     }
 
-    const result = await response.json();
+    const data = await response.json();
 
-    // Respond with the external API result and the local file URL
+    if (!data.success) {
+      console.error("Error in response data:", data);
+      throw new Error("Failed to generate pre-signed URL");
+    }
+
+    // Upload file to the generated pre-signed URL
+    const fileStream = fs.createReadStream(filePath);
+    const uploadResponse = await fetch(data.uploadUrl, {
+      method: 'PUT',
+      body: fileStream,
+      headers: {
+        'Content-Type': req.file.mimetype,
+        'x-amz-acl': 'public-read',
+      },
+    });
+
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text();
+      console.error("Error uploading file:", errorText);
+      throw new Error("Failed to upload file");
+    }
+
+    // Respond with the external file URL and local storage info
     res.json({
       success: true,
       message: 'File uploaded successfully',
       localFileUrl: `http://localhost:${port}/uploads/${req.file.filename}`,
-      externalApiResponse: result,
+      externalFileUrl: data.fileUrl,
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
