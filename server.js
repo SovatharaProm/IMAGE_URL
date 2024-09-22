@@ -41,7 +41,7 @@ app.post('/upload-image', upload.single('image'), async (req, res) => {
     const fetch = (await import('node-fetch')).default;
     const formData = new FormData();
     formData.append('hash', req.body.hash);
-    formData.append('image', fs.createReadStream(filePath)); // Send the file stream
+    formData.append('image', fs.createReadStream(filePath)); // Send the file streams
 
     const response = await fetch('https://mypress-output.paragoniu.app/upload-image', {
       method: 'POST',
