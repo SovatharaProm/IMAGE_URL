@@ -1,9 +1,9 @@
 const express = require('express');
 const multer = require('multer');
-const FormData = require('form-data');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const FormData = require('form-data');
 
 const app = express();
 const port = 3001;
@@ -11,18 +11,7 @@ const port = 3001;
 app.use(cors());
 
 // Multer setup for handling file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadPath = path.join(__dirname, 'uploads');
-    if (!fs.existsSync(uploadPath)) {
-      fs.mkdirSync(uploadPath);
-    }
-    cb(null, uploadPath);
-  },
-  filename: (req, file, cb) => {
-    cb(null, `${Date.now()}_${file.originalname}`);
-  },
-});
+const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 app.get('/test', (req, res) => {
@@ -32,18 +21,22 @@ app.get('/test', (req, res) => {
 // New route to handle image upload
 app.post('/upload-image', upload.single('image'), async (req, res) => {
   try {
-    const fetch = (await import('node-fetch')).default; // Dynamic import of node-fetch
+    const fetch = (await import('node-fetch')).default;
     const formData = new FormData();
-    formData.append('hash', req.body.hash);
-    formData.append('image', fs.createReadStream(req.file.path));
+    formData.append('image', req.file.buffer, {
+      filename: req.file.originalname,
+      contentType: req.file.mimetype,
+    });
 
     const response = await fetch('https://mypress-output.paragoniu.app/upload-image', {
       method: 'POST',
       body: formData,
+      headers: formData.getHeaders(),
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to upload file: ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`Failed to upload file: ${response.statusText} - ${errorText}`);
     }
 
     const result = await response.json();
